@@ -1,0 +1,30 @@
+[{
+    "type":"transaction",
+    "data":{
+        "fromAddress":"",
+        "toAddress":"",
+        "amount":10,
+        "hash":""
+    }
+},
+{
+    "type":"contract",
+    "data":{
+        "fromAddresses":["",""],
+        "toAddress":[""],
+        "deadLine":null,
+        "amount":10,
+        "terms":"",
+        "hash":""
+    }
+},
+{
+    "type":"offer",
+    "data":{
+        "fromAddress":"",
+        "toAddress":"",
+        "deadLine":null,
+        "amount":10,
+        "hash":""
+    }
+}]

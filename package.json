@@ -1,0 +1,12 @@
+{
+  "name": "triade-fullnode",
+  "version": "0.0.1",
+  "main": "index.js",
+  "author": "Hunter Bianchi",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "crypto-js": "^4.1.1",
+    "node-fetch": "^3.2.10"
+  }
+}
