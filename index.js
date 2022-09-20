@@ -1,20 +1,112 @@
 import fs from 'fs'
+import readline from 'readline'
 import fetch from 'node-fetch'
-import CryptoJs from 'crypto-js'
 import http from 'http'
 
+import CryptoJs from 'crypto-js'
 
+const myEndpointList = read('endpoint-list')
+const myChainHeader = read('chain-header')
+const myChain = read('chain')
 
-start()
-function start(){
-    let localEndpointList = read('endpoint-list')
-    let localPendingDatas = read('pending-datas')
-    let localChain = read('chain')
-    let localChainHeader     = read('chain-header')
+function listenNetwork(){
+    setInterval(()=>{
 
-    const endpointList = updateEndpointList()
-    const chainHeader = updateChainHeader()
-    updatePendingDatas(localPendingDatas, endpointList)
+        myEndpointList.forEach((value)=>{
+
+            try {
+
+                fetch(value, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'get-endpoint-list',
+                        data: myEndpointList
+                    })
+                }).then(res=>res.json()).then(res=>{
+    
+                    Object.assign(myEndpointList, res.data)
+    
+                    write(res.data, 'endpoint-list')
+    
+                })
+            } catch (error) {
+    
+                console.log(`Erro to fetch ${userEndpoint} to get endpoint list`)
+
+                make.close()
+                
+            }finally{
+                 
+                try {
+                    fetch(value, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':'application/json'
+                        },
+                        body: JSON.stringify({
+                            type: 'get-chain-header',
+                            data: myChainHeader
+                        })
+                    }).then(res=>res.json()).then(res=>{
+
+                        Object.assign(myChainHeader, res.data)
+
+                        write(res.data, 'chain-header')
+
+                    })
+                } catch (error) {
+                    console.log(`An error shouldn't be expected\n${error.message}`)
+                    make.close()
+                }finally{
+
+                    if(myChainHeader.chainLength > myChain.length){
+
+                        try {
+                            fetch(userEndpoint, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type':'application/json'
+                                },
+                                body:JSON.stringify({
+                                    type: 'get-new-chain',
+                                    data: myChainHeader
+                                })
+                            }).then(res=>res.json()).then(res=>{
+
+                                if(myChain.length>1){
+                                    
+                                    for(block of res.data){
+                                        console.log(`\nChecking block: ${block.hash}`)
+                                        if(block.previousHash = myChain[myChain.length-1].hash){
+                                            myChain.push(block)
+                                        }
+                                        
+                                    }
+                                    write(myChain, 'chain')
+                                }else{
+                                    Object.assign(myChain, res.data)
+                                    write(myChain, 'chain')
+                                }
+
+                            })
+                            
+                        } catch (error) {
+
+                            console.log('\nSh*t!\nIt seens like I can not download this file')
+                            
+                        } 
+
+                    
+                    }
+
+                }
+            }
+        })
+
+    },2000)
 }
 
 
@@ -27,6 +119,340 @@ function write(message, fileName){
     const contentString = JSON.stringify(message)
     fs.writeFileSync(`./json/${fileName}.json`, contentString)
 }
+
+const make = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+})
+
+setTimeout(()=>{
+    console.log(`Ready! Player-1\n`)
+    setTimeout(()=>{
+
+        initiateQuestions()
+
+    },500)
+},500)
+
+async function initiateQuestions(){
+    
+    make.question(`\nDo you have a GENESIS HASH? [y/N]:\n`, (answer)=>{
+
+        const haveGenesisHash = answer?answer:'N'
+
+        console.log(haveGenesisHash)
+    
+        if(haveGenesisHash.toUpperCase() === 'Y'){
+            
+            make.question(`\nInsert the Genesis Block's hash [c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e]:\n`,
+            (answer)=>{
+
+                const userGenesisHash = answer?answer:'c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e'
+
+                console.log(userGenesisHash)
+
+                myChainHeader.genesisHash = userGenesisHash
+
+                write(myChainHeader, 'chain-header')
+    
+                make.question(`\nDo you have an endpoin to connect? [Y/n]:\n`, (answer)=>{
+                    
+                    const haveEndpoint = answer?answer:'Y'
+    
+                    if(haveEndpoint.toUpperCase() === 'Y'){
+
+                        make.question(`\nInsert the <endpoint> [http://localhost:3000/api/chain]:\n`, (answer)=>{
+
+                            const userEndpoint = answer?answer:'http://localhost:3000/api/chain'
+    
+                            console.log(`\nConnecting to Network...\n`)
+
+                            try {
+                                fetch(userEndpoint, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type':'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        type: 'get-endpoint-list',
+                                        data: [userEndpoint]
+                                    })
+                                }).then(res=>res.json()).then(res=>{
+
+                                    console.log(res.data)
+
+                                    Object.assign(myEndpointList, res.data)
+
+                                    write(res.data, 'endpoint-list')
+
+                                })
+
+                            } catch (error) {
+
+                                console.log(`Erro to fetch ${userEndpoint} to get endpoint list`)
+                                make.close()
+                                
+                            } finally{
+                                console.log(`\nI will look for some chain header to see witch is longer...\n`)
+                                
+                                myEndpointList.forEach((value)=>{
+                                    
+                                    try {
+                                        fetch(value, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type':'application/json'
+                                            },
+                                            body: JSON.stringify({
+                                                type: 'get-chain-header',
+                                                data: myChainHeader
+                                            })
+                                        }).then(res=>res.json()).then(res=>{
+
+                                            Object.assign(myChainHeader, res.data)
+
+                                            write(res.data, 'chain-header')
+
+                                        })
+                                    } catch (error) {
+                                        console.log(`An error shouldn't be expected\n${error.message}`)
+                                        make.close()
+                                    }finally{
+
+                                        if(myChainHeader.chainLength > myChain.length){
+                                            make.question(`\nYour chain length is ${myChain.length} blocks. We found in a longer chain\n\nDo you wanna update your chain? [Y/n]:\n`, (answer)=>{
+
+                                                const mayIUpdateChain = answer?answer:'Y'
+                                                
+                                                if(mayIUpdateChain.toUpperCase() === 'Y'){
+                                                    
+                                                    try {
+                                                        fetch(userEndpoint, {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Content-Type':'application/json'
+                                                            },
+                                                            body:JSON.stringify({
+                                                                type: 'get-new-chain',
+                                                                data: myChainHeader
+                                                            })
+                                                        }).then(res=>res.json()).then(res=>{
+        
+                                                            if(myChain.length>1){
+                                                                
+                                                                for(block of res.data){
+                                                                    console.log(`\nChecking block: ${block.hash}`)
+                                                                    if(block.previousHash = myChain[myChain.length-1].hash){
+                                                                        myChain.push(block)
+                                                                    }
+                                                                    
+                                                                }
+                                                                write(myChain, 'chain')
+                                                            }else{
+                                                                Object.assign(myChain, res.data)
+                                                                write(myChain, 'chain')
+                                                            }
+        
+                                                        })
+                                                        
+                                                    } catch (error) {
+        
+                                                        console.log('\nSh*t!\nIt seens like I can not download this file')
+                                                        
+                                                    } finally{
+                                                        listenNetwork()
+                                                    }
+        
+                                                }else{
+                                                    console.log(`\nAre you an ass hole?\n`)
+                                                    make.close()
+                                                }
+                                            })
+                                        }else{
+                                            listenNetwork()
+                                            make.close()
+                                        }
+
+                                    }
+    
+                                })
+                            }
+                        })
+                    }
+                })
+    
+               //getChainHeader()
+               
+                /* make.question(`Do you have a KEY PAIR? \n[y/N]: `, (answer='N')=>{
+    
+                    if(answer.toUpperCase() === 'Y'){
+                        
+                        make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
+                            if(userPublicKey){
+                
+                                return userPublicKey
+                
+                            }else{
+                                make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
+                                    if(userPublicKey){
+                    
+                                        return userPublicKey
+                    
+                                    }else{ make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
+                                        if(userPublicKey){
+                        
+                                            return userPublicKey
+                        
+                                        }else{
+                                            make.question(`Are you a Dumb? [ Yes / sure ]: \n`, ()=>{
+                                                console.log(`\n\nOH MY... YOU ARE THE DUMBEST DUMB EVER!\n\n_|_^-^\n\n`)
+                                                make.close()
+                                            })
+                                            
+                                        }
+                                    })
+                                        
+                                    }
+                                })
+                
+                            }
+                        })
+                
+                    }else if(answer.toUpperCase() === 'N'){
+                
+                        console.log(`Creating a Key Pair...\n`)
+                
+                        setTimeout(console.log(`You will have to save your Private Key by yourself...\n`), 1000)
+                    
+                        const key = ec.genKeyPair()
+                        const privateKey = key.getPrivate('hex')
+                        const publicKey = key.getPublic('hex')
+                        
+                        console.log(`Save it: ${privateKey}\n`)
+                        console.log(`Share it: ${publicKey}\n`)
+                        return {
+                            privateKey,
+                            publicKey
+                        }
+                        
+                    }else {
+                
+                    }
+                    
+                }) */
+            })
+    
+        }else if(haveGenesisHash.toUpperCase() === 'N'){
+            console.log('\nYou need to have a Genesis Hash to connect to a network.\n')
+            make.close()
+            return read('chain-header').genesisHash
+        }else{
+            console.log('\nWrong answer! Try "Y" or "N" next time.\n')
+            make.close()
+        }
+        make.on('close', (command)=>{
+            console.log('BYEE')
+        })
+        
+        
+    })
+    
+
+}    
+
+/* 
+setInterval(start, 3000)
+
+function getCloserNodes(){}
+
+
+function start(){
+
+    // Update endpoint list:
+
+    for (let i = 0; i < read('endpoint-list').length; i++) {
+
+        const endpoint = endpointList[i]
+
+        try {
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type':'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'get-endpoint-list',
+                    data: endpointList
+                })
+            }).then(res=>res.json()).then(newEndpointList=>{
+                write(newEndpointList, 'endpoint-list')
+            })
+        } catch (error) {
+            throw new Error(error.messsage)
+        } 
+    }
+    
+    const endpointList = read('endpoint-list')
+    
+    let localChainHeader = read('chain-header')
+
+    for (let i = 0; i < endpointList.length; i++) {
+
+        const endpoint = endpointList[i]
+
+        try {
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type':'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'get-chain-header',
+                    data: JSON.stringify(read('chain-header'))
+                })
+            }).then(res=>res.json()).then(newChainHeader=>{
+                const chainLength = ''
+                const lastHash = ''
+                const genesisHash = ''
+                const pendingDatas = ''
+                const endpointList = ''
+                const target = ''
+                const fee = ''
+
+                
+                if(localChainHeader.chainLength){
+                    
+                }
+
+                // if(newChainHeader.chainLength > localChainHeader.chainLength && newChainHeader.genesisHash === localChainHeader.genesisHash){ 
+                //     write(newChainHeader, 'chain-header')
+                // }
+            })
+        } catch (error) {
+            return
+        }
+    }
+
+
+    // Read pending datas from local file:
+    let localPendingDatas = read('pending-datas')
+
+    // Update pending
+
+
+    let localChain = read('chain')
+
+    const chainHeader = getChainHeader()
+
+    updatePendingDatas(localPendingDatas, endpointList)
+    
+    getChainHeader()
+
+    const set = new Set(localEndpointList)
+
+}
+
+
 
 async function updateEndpointList(){
 
@@ -138,10 +564,7 @@ async function updateChain(){
 
 }
 
-async function updateChainHeader(){
-
-    const localChainHeader = read('chain-header')
-    const localEndpointList = read('endpoint-list')
+async function getChainHeader(localChainHeader, localEndpointList){
 
     if(localEndpointList.length>0){
 
@@ -177,7 +600,7 @@ async function updateChainHeader(){
         throw new Error('no endpoint at the list')
     }
 }
-
+ */
  
 /*
 
@@ -207,239 +630,3 @@ async function mine(){
 mine()
  */
 
-/* 
-const EC = require('elliptic').ec
-const ec = new EC('secp256k1')
-const key = ec.genKeyPair()
-const publicKey = key.getPublic('hex')
-const privateKey = key.getPrivate('hex')
-const { SHA256 } = require('crypto-js')
-const fs = require('fs')
-const chainJsonPath = './json/chain.json'
-
-
-function chainUpdate(content) {
-    const contentString = JSON.stringify(content)
-    const fileBuffer = fs.readFileSync(chainJsonPath, 'utf-8')
-    // const contentJson = JSON.parse(fileBuffer)
-    return fs.writeFileSync(chainJsonPath, contentString)
-
-}
-
-chainUpdate({content:"nice"})
-function load() {
-  const fileBuffer = fs.readFileSync(todasCidades, 'utf-8')
-  const contentJson = JSON.parse(fileBuffer)
-  return contentJson
-}
-
-export class Block {
-
-    constructor(timestamp, data, previousHash = '') {
-        this.timestamp = timestamp
-        this.data = data
-        this.previousHash = previousHash
-        this.nonce = 0
-        this.hash = this.calculateHash()
-    }
-
-    hasValidTransactions() {
-        // Traverse all transactions within the block, verifying them one by one
-        for (const tx of this.transactions) {
-            if (!tx.isValid()) {
-                return false
-            }
-        }
-        return true
-    }
-
-    mineBlock(difficulty) {
-        while (this.hash.substring(0, difficulty) !== Array(difficulty + 1).join("0")) {
-            this.nonce++
-            this.hash = this.calculateHash()
-        }
-    }
-
-    calculateHash() {
-        return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString()
-    }
-
-}
-
-export class BlockChain {
-
-    constructor() {
-        this.chain = [this.createGenesisBlock()]
-        this.difficulty = this.getDifficulty()
-        this.pendingTransactions = []
-        this.miningReward = 100
-    }
-
-    getDifficulty() {
-
-        let current_difficulty = 3
-        
-        if (this.chain.length > 2015) {
-            const latest_block = this.getLatestBlock()
-            const twoweeks = 1209600
-            const period = (latest_block.timestamp - under2016_block.timestamp)
-            const calc = period%twoweeks
-            const under2016_block = this.chain[this.chain.length - 2016]
-
-            
-            if(calc == 0){
-                const ttltime = (latest_block.timestamp - under2016_block.timestamp)
-
-            }
-            return current_difficulty
-        }
-        console.log(`bloco: ${this.chain.length-1}`)
-
-
-       
-        return current_difficulty
-    }
-    addTransaction(transaction) {
-        if (!transaction.fromAddress || !transaction.toAddress) {
-            throw new Error('Transaction must include from and to address')
-        }
-        if (transaction.isValid()) {
-            console.log(`
-    _____________________________________
-    |       transactionsisvalid?:       |
-     |       ${transaction.isValid()}                        |
-       |___________________________________|
-            
-            `)
-        }
-        if (!transaction.isValid()) {
-            throw new Error('Cannot add invalid transaction to the chain')
-        }
-        this.pendingTransactions.push(transaction)
-    }
-
-    getLatestBlock() {
-        return this.chain[this.chain.length - 1]
-    }
-    //Incoming miner address
-    minePendingTransactions(miningRewardAddress) {
-        let block = new Block(Date.now(), this.pendingTransactions)
-        block.mineBlock(this.difficulty)
-        this.chain.push(block)
-        this.pendingTransactions = [new Transaction(null, miningRewardAddress, this.miningReward)]
-    }
-    getBalanceOfAddress(address) {
-        let balance = 0
-        for (const block of this.chain) {
-            for (const transaction of block.transactions) {
-                if (transaction.fromAddress === address) {
-                    balance -= transaction.amount
-                }
-                if (transaction.toAddress === address) {
-                    balance += transaction.amount
-                }
-            }
-        }
-        return balance
-    }
-    isChainValid() {
-        for (let i = 1; i < this.chain.length; i++) {
-            const currentBlock = this.chain[i]
-            const previousBlock = this.chain[i - 1]
-            // Check if all transactions in the block are valid.
-            if (!currentBlock.hasValidTransactions()) {
-                return false
-            }
-            if (currentBlock.hash !== currentBlock.calculateHash()) {
-                console.error("hash not equal: " + JSON.stringify(currentBlock))
-                return false
-            }
-            if (currentBlock.previousHash !== previousBlock.calculateHash()) {
-                console.error("previous hash not right: " + JSON.stringify(currentBlock))
-                return false
-            }
-            return true
-        }
-
-    }
-
-    createGenesisBlock() {
-        return new Block("2021-04-18 00:00:00", "Tríade", "")
-    }
-
-}
-
-export class Transaction {
-
-    constructor(fromAddress, toAddress, amount) {
-        this.fromAddress = fromAddress
-        this.toAddress = toAddress
-        this.amount = amount
-
-    }
-
-    calculateHash() {
-        return SHA256(this.fromAddress + this.toAddress + this.amount).toString()
-
-    }
-
-    signTransaction(signingKey) {
-
-        this.privateSign = ec.keyFromPrivate(signingKey)
-        if (this.privateSign.getPublic('hex') !== this.fromAddress) {
-
-            throw new Error('You cannot sign transactions for other wallets!')
-
-        }
-
-        const txHash = this.calculateHash()
-        const sig = this.privateSign.sign(txHash, 'base64')
-        this.signature = sig.toDER('hex')
-        console.log(`Assinatura no formato DER: ${this.signature}`)
-
-    }
-
-    isValid() {
-
-        if (!this.fromAddress === null) return true
-        if (!this.signature || this.signature.length === 0) {
-
-            throw new Error('No signature in this transaction')
-
-        }
-        
-        const publicKey = ec.keyFromPublic(this.fromAddress, 'hex')
-        return publicKey.verify(this.calculateHash(), this.signature)
-
-    }
-    
-
-}
-// wallet:
-const myPrivateKey = '1c258d67b50bda9377c1badddd33bc815eeac8fcb9aee5d097ad6cedc3d2310c'
-const myPublicKey = ec.keyFromPrivate(myPrivateKey)
-const myWalletAddress = myPublicKey.getPublic('hex')
-const alicePrivateKey = '815eeac8fcb9aee5d097ad6cedc3d2310c1c258d67b50bda9377c1badddd33bc'
-const alicePublicKey = '04a9d3154a24b2aebb23f30f920ded627e131e0a3eb2624c4506842f6299ed1b29a51bd772ca0208c638c37224409e9d51b476989995482ec0f5fc4a93d3c034e0'
-const triade = new BlockChain()
-const tx1 = new Transaction(myWalletAddress, alicePublicKey, 60)
-tx1.signTransaction(myPrivateKey)
-triade.addTransaction(tx1)
-
-// Tunelling transactions and asingnment to full nodes
-triade.minePendingTransactions(myWalletAddress)
-console.log("Balance of Alice's account is: ", triade.getBalanceOfAddress(alicePublicKey))
-const tx2 = new Transaction(alicePublicKey, myWalletAddress, 20)
-tx2.signTransaction(alicePrivateKey)
-triade.minePendingTransactions(myWalletAddress)
-console.log("Balance of Alice's account is: ", triade.getBalanceOfAddress(alicePublicKey))
-const tx3 = new Transaction(myWalletAddress, alicePublicKey, 60)
-tx3.signTransaction(myPrivateKey)
-triade.addTransaction(tx3)
-triade.minePendingTransactions(myWalletAddress)
-console.log("Balance of Alice's account is: ", triade.getBalanceOfAddress(alicePublicKey))
-const tx4 = new Transaction(alicePublicKey, myWalletAddress, 20)
-tx4.signTransaction(alicePrivateKey)
-triade.addTransaction(tx4)
-triade.minePendingTransactions(myWalletAddress)
-console.log("Balance of Alice's account is: ", triade.getBalanceOfAddress(alicePublicKey)) */

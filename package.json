@@ -7,6 +7,7 @@
   "license": "MIT",
   "dependencies": {
     "crypto-js": "^4.1.1",
+    "elliptic": "^6.5.4",
     "node-fetch": "^3.2.10"
   }
 }
