@@ -1,4 +1,4 @@
-# TRÍADE-FULLNODE
+# TRÍADE-FULLNODE c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e
 
 ## What is TRÍADE-FULLNODE?
 <p>A FULLNODE is a program that stores and shares all database from the network, and, stores and shares all the logic of this network's consent and cryptography.</br>Samewise, TRÍADE-FULLNODE is one of these FULLNODES running under a TRÍADE-NETWORK.</p>
@@ -75,11 +75,15 @@ After [download the fullnode's main folder](#how-to-download-a-tríade-fullnode)
     <img alt="Desktop screenshot showing the downloaded and extracted folder" src="./src/images/opened-folder.png" width=100%/><br/>
 </div></br></br>
 
+___
+
 Then, open the terminal there. </br></br>
 
 <div>
     <img alt="Desktop screenshot showing the downloaded and extracted folder" src="./src/images/hover-option_open-in-terminal.png" width=100%/><br/>
 </div></br></br>
+
+___
 
 On terminal just run index.js file using NODEJS:
 
@@ -90,6 +94,14 @@ $ node index.js
 <div>
     <img alt="Desktop screenshot showing the downloaded and extracted folder" src="./src/images/on-terminal.png" width=100%/><br/>
 </div></br></br>
+
+___
+
+<div>
+    <img alt="Desktop screenshot showing the first of some questions" src="./src/images/questions.png" width=100%/><br/>
+</div></br></br>
+
+___
 
 Done! The TRÍADE-FULLNODE is running... </br></br>
 

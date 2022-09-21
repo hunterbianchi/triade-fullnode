@@ -10,12 +10,12 @@ const myChainHeader = read('chain-header')
 const myChain = read('chain')
 
 function listenNetwork(){
+
     setInterval(()=>{
 
         myEndpointList.forEach((value)=>{
 
             try {
-
                 fetch(value, {
                     method: 'POST',
                     headers: {
@@ -138,18 +138,20 @@ async function initiateQuestions(){
     
     make.question(`\nDo you have a GENESIS HASH? [y/N]:\n`, (answer)=>{
 
+        if(!answer){
+            console.log('N')
+        }
         const haveGenesisHash = answer?answer:'N'
-
-        console.log(haveGenesisHash)
     
         if(haveGenesisHash.toUpperCase() === 'Y'){
             
             make.question(`\nInsert the Genesis Block's hash [c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e]:\n`,
             (answer)=>{
+                if(!answer){
+                    console.log('c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e')
+                }
 
                 const userGenesisHash = answer?answer:'c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e'
-
-                console.log(userGenesisHash)
 
                 myChainHeader.genesisHash = userGenesisHash
 
@@ -161,14 +163,17 @@ async function initiateQuestions(){
     
                     if(haveEndpoint.toUpperCase() === 'Y'){
 
-                        make.question(`\nInsert the <endpoint> [http://localhost:3000/api/chain]:\n`, (answer)=>{
+                        make.question(`\nInsert the <endpoint> [https://triade-api.vercel.app/api/chain]:\n`, (answer)=>{
+                            if(!answer){
+                                console.log(`\nhttps://triade-api.vercel.app/api/chain\n`)
+                            }
 
-                            const userEndpoint = answer?answer:'http://localhost:3000/api/chain'
+                            const userEndpoint = answer?answer:'https://triade-api.vercel.app/api/chain'
     
                             console.log(`\nConnecting to Network...\n`)
 
                             try {
-                                fetch(userEndpoint, {
+                                await fetch(userEndpoint, {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type':'application/json'
@@ -198,7 +203,7 @@ async function initiateQuestions(){
                                 myEndpointList.forEach((value)=>{
                                     
                                     try {
-                                        fetch(value, {
+                                        await fetch(value, {
                                             method: 'POST',
                                             headers: {
                                                 'Content-Type':'application/json'
@@ -227,7 +232,7 @@ async function initiateQuestions(){
                                                 if(mayIUpdateChain.toUpperCase() === 'Y'){
                                                     
                                                     try {
-                                                        fetch(userEndpoint, {
+                                                        await fetch(userEndpoint, {
                                                             method: 'POST',
                                                             headers: {
                                                                 'Content-Type':'application/json'
@@ -278,6 +283,115 @@ async function initiateQuestions(){
                                 })
                             }
                         })
+                    } else if(haveEndpoint.toUpperCase() === 'N'){
+                        const defaultEndpoint = 'https://triade-api.vercel.app/api/chain'
+                        try {
+                            await fetch(defaultEndpoint, {
+
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type':'application/json'
+                                },
+                                body:JSON.stringify({
+                                    type: 'get-endpoint-list',
+                                    data: myEndpointList
+                                })
+
+                            }).then(res=>res.json()).then(res=>{
+
+                                const newEndpointList = res.data
+
+                                const myEndpointListSet = new Set(myEndpointList)
+
+                                newEndpointList.forEach((value)=>{
+                                    myEndpointListSet.add(value)
+                                })
+
+                                Object.assign(myEndpointList, Array.from(myEndpointListSet))
+                                write(myEndpointList, 'endpoint-list')
+                            })
+                            
+                        } catch (error) {
+                            console.log(`\nHolly crap!\nThere is an error, right?`)
+                        } finally{
+                            console.log(`\nI will look for some chain header to see witch is longer...\n`)
+                            
+                            myEndpointList.forEach((value)=>{
+                                
+                                try {
+                                    await fetch(value, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type':'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                            type: 'get-chain-header',
+                                            data: myChainHeader
+                                        })
+                                    }).then(res=>res.json()).then(res=>{
+
+                                        Object.assign(myChainHeader, res.data)
+
+                                        write(res.data, 'chain-header')
+
+                                    })
+                                } catch (error) {
+                                    console.log(`An error shouldn't be expected\n${error.message}`)
+                                }finally{
+
+                                    if(myChainHeader.chainLength > myChain.length){                                        
+                                        
+                                        try {
+                                            await fetch(userEndpoint, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type':'application/json'
+                                                },
+                                                body:JSON.stringify({
+                                                    type: 'get-new-chain',
+                                                    data: myChainHeader
+                                                })
+                                            }).then(res=>res.json()).then(res=>{
+
+                                                if(myChain.length>1){
+                                                    
+                                                    for(block of res.data){
+                                                        console.log(`\nChecking block: ${block.hash}`)
+                                                        if(block.previousHash = myChain[myChain.length-1].hash){
+                                                            myChain.push(block)
+                                                        }
+                                                        
+                                                    }
+                                                    write(myChain, 'chain')
+                                                }else{
+                                                    Object.assign(myChain, res.data)
+                                                    write(myChain, 'chain')
+                                                }
+
+                                            })
+                                            
+                                        } catch (error) {
+
+                                            console.log('\nSh*t!\nIt seens like I can not download this file')
+                                            
+                                        } finally{
+                                            listenNetwork()
+                                        }
+
+                                    
+                                    }else{
+                                        listenNetwork()
+                                        make.close()
+                                    }
+
+                                }
+
+                            })
+                        }
+
+                    } else {
+                        console.log(`\nOk! You are disable...\nF*ck you!\n`)
+                        make.close()
                     }
                 })
     
@@ -351,7 +465,7 @@ async function initiateQuestions(){
             make.close()
         }
         make.on('close', (command)=>{
-            console.log('BYEE')
+            console.log('\nBYEE!!!\n')
         })
         
         
