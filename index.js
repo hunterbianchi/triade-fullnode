@@ -75,6 +75,7 @@ function listenNetwork(){
                                     data: myChainHeader
                                 })
                             }).then(res=>res.json()).then(res=>{
+                                console.log(res.data.length)
 
                                 if(myChain.length>1){
                                     
@@ -97,7 +98,9 @@ function listenNetwork(){
 
                             console.log('\nSh*t!\nIt seens like I can not download this file')
                             
-                        } 
+                        } finally{
+                            console.log(`\n.`)
+                        }
 
                     
                     }
@@ -126,352 +129,334 @@ const make = readline.createInterface({
 })
 
 setTimeout(()=>{
-    console.log(`Ready! Player-1\n`)
+
+    console.log(`\nReady! Player-1\n`)
+
     setTimeout(()=>{
 
         initiateQuestions()
 
     },500)
+
 },500)
 
 async function initiateQuestions(){
-    
-    make.question(`\nDo you have a GENESIS HASH? [y/N]:\n`, (answer)=>{
 
+    make.question(`\nInsert the Genesis Block's hash [c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e]:\n`,
+    (answer)=>{
         if(!answer){
-            console.log('N')
+            console.log('\nDefault Genesis Hash:\nc40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e')
         }
-        const haveGenesisHash = answer?answer:'N'
-    
-        if(haveGenesisHash.toUpperCase() === 'Y'){
+
+        const userGenesisHash = answer?answer:'c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e'
+
+        myChainHeader.genesisHash = userGenesisHash
+
+        write(myChainHeader, 'chain-header')
+
+        make.question(`\nDo you have an endpoin to connect? [Y/n]:\n`, (answer)=>{
             
-            make.question(`\nInsert the Genesis Block's hash [c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e]:\n`,
-            (answer)=>{
-                if(!answer){
-                    console.log('c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e')
-                }
+            const haveEndpoint = answer?answer:'Y'
 
-                const userGenesisHash = answer?answer:'c40238097fd7ebb8d345217548bf274fe7ab71bec899a2d82e872f1dc441001e'
+            if(haveEndpoint.toUpperCase() === 'Y'){
 
-                myChainHeader.genesisHash = userGenesisHash
+                make.question(`\nInsert the <endpoint> [https://triade-api.vercel.app/api/chain]:\n`, (answer)=>{
+                    if(!answer){
+                        console.log(`\nDefault endpoint:\nhttps://triade-api.vercel.app/api/chain\n`)
+                    }
 
-                write(myChainHeader, 'chain-header')
-    
-                make.question(`\nDo you have an endpoin to connect? [Y/n]:\n`, (answer)=>{
-                    
-                    const haveEndpoint = answer?answer:'Y'
-    
-                    if(haveEndpoint.toUpperCase() === 'Y'){
+                    const userEndpoint = answer?answer:'https://triade-api.vercel.app/api/chain'
 
-                        make.question(`\nInsert the <endpoint> [https://triade-api.vercel.app/api/chain]:\n`, (answer)=>{
-                            if(!answer){
-                                console.log(`\nhttps://triade-api.vercel.app/api/chain\n`)
-                            }
+                    console.log(`\nConnecting to Network...\n`)
 
-                            const userEndpoint = answer?answer:'https://triade-api.vercel.app/api/chain'
-    
-                            console.log(`\nConnecting to Network...\n`)
+                    try {
+                        fetch(userEndpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type':'application/json'
+                            },
+                            body: JSON.stringify({
+                                type: 'get-endpoint-list',
+                                data: [userEndpoint]
+                            })
+                        }).then(res=>res.json()).then(res=>{
 
+                            Object.assign(myEndpointList, res.data)
+
+                            write(res.data, 'endpoint-list')
+
+                        })
+
+                    } catch (error) {
+
+                        console.log(`Erro to fetch ${userEndpoint} to get endpoint list`)
+                        make.close()
+                        
+                    } finally{
+                        console.log(`\nI am looking for something at those endpoint...\n`)
+                        
+                        myEndpointList.forEach((value)=>{
                             try {
-                                await fetch(userEndpoint, {
+                                fetch(value, {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type':'application/json'
                                     },
                                     body: JSON.stringify({
-                                        type: 'get-endpoint-list',
-                                        data: [userEndpoint]
+                                        type: 'get-chain-header',
+                                        data: myChainHeader
                                     })
                                 }).then(res=>res.json()).then(res=>{
 
-                                    console.log(res.data)
+                                    Object.assign(myChainHeader, res.data)
 
-                                    Object.assign(myEndpointList, res.data)
-
-                                    write(res.data, 'endpoint-list')
+                                    write(res.data, 'chain-header')
 
                                 })
-
                             } catch (error) {
-
-                                console.log(`Erro to fetch ${userEndpoint} to get endpoint list`)
+                                console.log(`An error shouldn't be expected\n${error.message}`)
                                 make.close()
-                                
-                            } finally{
-                                console.log(`\nI will look for some chain header to see witch is longer...\n`)
-                                
-                                myEndpointList.forEach((value)=>{
-                                    
-                                    try {
-                                        await fetch(value, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type':'application/json'
-                                            },
-                                            body: JSON.stringify({
-                                                type: 'get-chain-header',
-                                                data: myChainHeader
-                                            })
-                                        }).then(res=>res.json()).then(res=>{
+                            }finally{
 
-                                            Object.assign(myChainHeader, res.data)
+                                if(myChainHeader.chainLength > myChain.length){
+                                    make.question(`\nYour chain length is ${myChain.length} blocks. We found in a longer chain\n\nDo you wanna update your chain? [Y/n]:\n`, (answer)=>{
 
-                                            write(res.data, 'chain-header')
-
-                                        })
-                                    } catch (error) {
-                                        console.log(`An error shouldn't be expected\n${error.message}`)
-                                        make.close()
-                                    }finally{
-
-                                        if(myChainHeader.chainLength > myChain.length){
-                                            make.question(`\nYour chain length is ${myChain.length} blocks. We found in a longer chain\n\nDo you wanna update your chain? [Y/n]:\n`, (answer)=>{
-
-                                                const mayIUpdateChain = answer?answer:'Y'
-                                                
-                                                if(mayIUpdateChain.toUpperCase() === 'Y'){
-                                                    
-                                                    try {
-                                                        await fetch(userEndpoint, {
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Content-Type':'application/json'
-                                                            },
-                                                            body:JSON.stringify({
-                                                                type: 'get-new-chain',
-                                                                data: myChainHeader
-                                                            })
-                                                        }).then(res=>res.json()).then(res=>{
-        
-                                                            if(myChain.length>1){
-                                                                
-                                                                for(block of res.data){
-                                                                    console.log(`\nChecking block: ${block.hash}`)
-                                                                    if(block.previousHash = myChain[myChain.length-1].hash){
-                                                                        myChain.push(block)
-                                                                    }
-                                                                    
-                                                                }
-                                                                write(myChain, 'chain')
-                                                            }else{
-                                                                Object.assign(myChain, res.data)
-                                                                write(myChain, 'chain')
-                                                            }
-        
-                                                        })
-                                                        
-                                                    } catch (error) {
-        
-                                                        console.log('\nSh*t!\nIt seens like I can not download this file')
-                                                        
-                                                    } finally{
-                                                        listenNetwork()
-                                                    }
-        
-                                                }else{
-                                                    console.log(`\nAre you an ass hole?\n`)
-                                                    make.close()
-                                                }
-                                            })
-                                        }else{
-                                            listenNetwork()
-                                            make.close()
+                                        if(!answer){
+                                            console.log(`\nY\n`)
                                         }
 
-                                    }
-    
-                                })
-                            }
-                        })
-                    } else if(haveEndpoint.toUpperCase() === 'N'){
-                        const defaultEndpoint = 'https://triade-api.vercel.app/api/chain'
-                        try {
-                            await fetch(defaultEndpoint, {
+                                        const mayIUpdateChain = answer?answer:'Y'
+                                        
+                                        if(mayIUpdateChain.toUpperCase() === 'Y'){
+                                            
+                                            try {
+                                                fetch(userEndpoint, {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type':'application/json'
+                                                    },
+                                                    body:JSON.stringify({
+                                                        type: 'get-new-chain',
+                                                        data: myChainHeader
+                                                    })
+                                                }).then(res=>res.json()).then(res=>{
 
+                                                    if(myChain.length>1){
+                                                        
+                                                        for(block of res.data){
+                                                            console.log(`\nChecking block: ${block.hash}`)
+                                                            if(block.previousHash = myChain[myChain.length-1].hash){
+                                                                myChain.push(block)
+                                                            }
+                                                            
+                                                        }
+                                                        write(myChain, 'chain')
+                                                    }else{
+                                                        Object.assign(myChain, res.data)
+                                                        write(myChain, 'chain')
+                                                    }
+
+                                                })
+                                                
+                                            } catch (error) {
+
+                                                console.log('\nSh*t!\nIt seens like I can not download this file')
+                                                
+                                            } finally{
+                                                listenNetwork()
+                                            }
+
+                                        }else{
+                                            console.log(`\nAre you an ass hole?\n`)
+                                            make.close()
+                                        }
+                                    })
+                                }else{
+                                    listenNetwork()
+                                }
+
+                            }
+
+                        })
+                    }
+                })
+            } else if(haveEndpoint.toUpperCase() === 'N'){
+                const defaultEndpoint = 'https://triade-api.vercel.app/api/chain'
+                try {
+                    fetch(defaultEndpoint, {
+
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':'application/json'
+                        },
+                        body:JSON.stringify({
+                            type: 'get-endpoint-list',
+                            data: myEndpointList
+                        })
+
+                    }).then(res=>res.json()).then(res=>{
+
+                        const newEndpointList = res.data
+
+                        const myEndpointListSet = new Set(myEndpointList)
+
+                        newEndpointList.forEach((value)=>{
+                            myEndpointListSet.add(value)
+                        })
+
+                        Object.assign(myEndpointList, Array.from(myEndpointListSet))
+                        write(myEndpointList, 'endpoint-list')
+                    })
+                    
+                } catch (error) {
+                    console.log(`\nHolly crap!\nThere is an error, right?`)
+                } finally{
+                    console.log(`\nI will look for some chain header to see witch is longer...\n`)
+                    
+                    myEndpointList.forEach((value)=>{
+                        
+                        try {
+                            fetch(value, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type':'application/json'
                                 },
-                                body:JSON.stringify({
-                                    type: 'get-endpoint-list',
-                                    data: myEndpointList
+                                body: JSON.stringify({
+                                    type: 'get-chain-header',
+                                    data: myChainHeader
                                 })
-
                             }).then(res=>res.json()).then(res=>{
 
-                                const newEndpointList = res.data
+                                Object.assign(myChainHeader, res.data)
 
-                                const myEndpointListSet = new Set(myEndpointList)
+                                write(res.data, 'chain-header')
 
-                                newEndpointList.forEach((value)=>{
-                                    myEndpointListSet.add(value)
-                                })
-
-                                Object.assign(myEndpointList, Array.from(myEndpointListSet))
-                                write(myEndpointList, 'endpoint-list')
                             })
-                            
                         } catch (error) {
-                            console.log(`\nHolly crap!\nThere is an error, right?`)
-                        } finally{
-                            console.log(`\nI will look for some chain header to see witch is longer...\n`)
-                            
-                            myEndpointList.forEach((value)=>{
+                            console.log(`An error shouldn't be expected\n${error.message}`)
+                        }finally{
+
+                            if(myChainHeader.chainLength > myChain.length){                                        
                                 
                                 try {
-                                    await fetch(value, {
+                                    fetch(userEndpoint, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type':'application/json'
                                         },
-                                        body: JSON.stringify({
-                                            type: 'get-chain-header',
+                                        body:JSON.stringify({
+                                            type: 'get-new-chain',
                                             data: myChainHeader
                                         })
                                     }).then(res=>res.json()).then(res=>{
 
-                                        Object.assign(myChainHeader, res.data)
-
-                                        write(res.data, 'chain-header')
-
-                                    })
-                                } catch (error) {
-                                    console.log(`An error shouldn't be expected\n${error.message}`)
-                                }finally{
-
-                                    if(myChainHeader.chainLength > myChain.length){                                        
-                                        
-                                        try {
-                                            await fetch(userEndpoint, {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type':'application/json'
-                                                },
-                                                body:JSON.stringify({
-                                                    type: 'get-new-chain',
-                                                    data: myChainHeader
-                                                })
-                                            }).then(res=>res.json()).then(res=>{
-
-                                                if(myChain.length>1){
-                                                    
-                                                    for(block of res.data){
-                                                        console.log(`\nChecking block: ${block.hash}`)
-                                                        if(block.previousHash = myChain[myChain.length-1].hash){
-                                                            myChain.push(block)
-                                                        }
-                                                        
-                                                    }
-                                                    write(myChain, 'chain')
-                                                }else{
-                                                    Object.assign(myChain, res.data)
-                                                    write(myChain, 'chain')
+                                        if(myChain.length>1){
+                                            
+                                            for(block of res.data){
+                                                console.log(`\nChecking block: ${block.hash}`)
+                                                if(block.previousHash = myChain[myChain.length-1].hash){
+                                                    myChain.push(block)
                                                 }
-
-                                            })
-                                            
-                                        } catch (error) {
-
-                                            console.log('\nSh*t!\nIt seens like I can not download this file')
-                                            
-                                        } finally{
-                                            listenNetwork()
+                                                
+                                            }
+                                            write(myChain, 'chain')
+                                        }else{
+                                            Object.assign(myChain, res.data)
+                                            write(myChain, 'chain')
                                         }
 
+                                    })
                                     
-                                    }else{
-                                        listenNetwork()
-                                        make.close()
-                                    }
+                                } catch (error) {
 
+                                    console.log('\nSh*t!\nIt seens like I can not download this file')
+                                    
+                                } finally{
+                                    listenNetwork()
                                 }
 
-                            })
+                            
+                            }else{
+                                listenNetwork()
+                                make.close()
+                            }
+
                         }
 
-                    } else {
-                        console.log(`\nOk! You are disable...\nF*ck you!\n`)
-                        make.close()
-                    }
-                })
-    
-               //getChainHeader()
-               
-                /* make.question(`Do you have a KEY PAIR? \n[y/N]: `, (answer='N')=>{
-    
-                    if(answer.toUpperCase() === 'Y'){
-                        
+                    })
+                }
+
+            } else {
+                console.log(`\nOk! You are an asshole...\nF*ck you!\n`)
+                make.close()
+            }
+        })
+
+        //getChainHeader()
+        
+        /* make.question(`Do you have a KEY PAIR? \n[y/N]: `, (answer='N')=>{
+
+            if(answer.toUpperCase() === 'Y'){
+                
+                make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
+                    if(userPublicKey){
+        
+                        return userPublicKey
+        
+                    }else{
                         make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
                             if(userPublicKey){
-                
+            
                                 return userPublicKey
+            
+                            }else{ make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
+                                if(userPublicKey){
                 
-                            }else{
-                                make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
-                                    if(userPublicKey){
-                    
-                                        return userPublicKey
-                    
-                                    }else{ make.question(`Insert your PUBLIC KEY: \n`, (userPublicKey)=>{
-                                        if(userPublicKey){
-                        
-                                            return userPublicKey
-                        
-                                        }else{
-                                            make.question(`Are you a Dumb? [ Yes / sure ]: \n`, ()=>{
-                                                console.log(`\n\nOH MY... YOU ARE THE DUMBEST DUMB EVER!\n\n_|_^-^\n\n`)
-                                                make.close()
-                                            })
-                                            
-                                        }
+                                    return userPublicKey
+                
+                                }else{
+                                    make.question(`Are you a Dumb? [ Yes / sure ]: \n`, ()=>{
+                                        console.log(`\n\nOH MY... YOU ARE THE DUMBEST DUMB EVER!\n\n_|_^-^\n\n`)
+                                        make.close()
                                     })
-                                        
-                                    }
-                                })
-                
+                                    
+                                }
+                            })
+                                
                             }
                         })
-                
-                    }else if(answer.toUpperCase() === 'N'){
-                
-                        console.log(`Creating a Key Pair...\n`)
-                
-                        setTimeout(console.log(`You will have to save your Private Key by yourself...\n`), 1000)
-                    
-                        const key = ec.genKeyPair()
-                        const privateKey = key.getPrivate('hex')
-                        const publicKey = key.getPublic('hex')
-                        
-                        console.log(`Save it: ${privateKey}\n`)
-                        console.log(`Share it: ${publicKey}\n`)
-                        return {
-                            privateKey,
-                            publicKey
-                        }
-                        
-                    }else {
-                
+        
                     }
-                    
-                }) */
-            })
-    
-        }else if(haveGenesisHash.toUpperCase() === 'N'){
-            console.log('\nYou need to have a Genesis Hash to connect to a network.\n')
-            make.close()
-            return read('chain-header').genesisHash
-        }else{
-            console.log('\nWrong answer! Try "Y" or "N" next time.\n')
-            make.close()
-        }
-        make.on('close', (command)=>{
-            console.log('\nBYEE!!!\n')
-        })
+                })
         
+            }else if(answer.toUpperCase() === 'N'){
         
+                console.log(`Creating a Key Pair...\n`)
+        
+                setTimeout(console.log(`You will have to save your Private Key by yourself...\n`), 1000)
+            
+                const key = ec.genKeyPair()
+                const privateKey = key.getPrivate('hex')
+                const publicKey = key.getPublic('hex')
+                
+                console.log(`Save it: ${privateKey}\n`)
+                console.log(`Share it: ${publicKey}\n`)
+                return {
+                    privateKey,
+                    publicKey
+                }
+                
+            }else {
+        
+            }
+            
+        }) */
     })
-    
 
+    
+    make.on('close', (command)=>{
+        console.log('\nBYEE!!!\n')
+    })
 }    
 
 /* 
